@@ -31,8 +31,7 @@ structure Parser : Monad =
 
 functor State(type s) : Monad =
   struct
-    type ('a, 's) State = 's -> 'a * 's
-    type 'a M = ('a, s) State
+    type 'a M = s -> 'a * s
 
     fun result a : 'a M = fn s => (a, s)
 
@@ -42,9 +41,38 @@ functor State(type s) : Monad =
 	      end
   end
 
+signature SM =
+  sig
+    type s
+    structure m : Monad
+  end
+
+functor StateM(sm : SM) : Monad =
+  struct
+    type 'a M = sm.s -> ('a * sm.s) sm.m.M
+
+    fun result a : 'a M = fn s => sm.m.result (a, s)
+
+    fun bind (x : 'a M) (y : 'a -> 'b M) : 'b M =
+      fn s0 => let val v = x s0
+		   fun f (a, s) = (y a) s
+	       in sm.m.bind v f
+	       end
+  end
+
 structure TestState =
   struct
     structure IntState = State(type s = int)
     val x = IntState.result "hello"
     val y = x 3
+  end
+
+structure TestStateM =
+  struct
+    structure IntStateM = StateM(
+	struct
+	  type s = int
+	  structure m = State(type s = string)
+	end
+      )
   end
